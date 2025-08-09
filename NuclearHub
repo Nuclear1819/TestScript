@@ -1,0 +1,172 @@
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- สร้าง GUI หลัก
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MukeyScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- ปุ่มเปิด GUI (ลากได้)
+local openButton = Instance.new("TextButton")
+openButton.Name = "OpenButton"
+openButton.Text = "☣"
+openButton.Size = UDim2.new(0, 60, 0, 60)
+openButton.Position = UDim2.new(0, 30, 0, 10) -- ขยับไปขวาเล็กน้อย
+openButton.BackgroundColor3 = Color3.fromRGB(0, 50, 0) -- เขียวเข้ม
+openButton.TextColor3 = Color3.fromRGB(0, 255, 0) -- เขียวเรืองแสง
+openButton.Font = Enum.Font.GothamBold
+openButton.TextSize = 28
+openButton.Parent = screenGui
+
+-- ตกแต่งปุ่มเปิด
+local corner = Instance.new("UICorner", openButton)
+corner.CornerRadius = UDim.new(0, 15)
+local stroke = Instance.new("UIStroke", openButton)
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(0, 255, 0) -- ขอบเขียวเรืองแสง
+
+-- เฟรมหลัก
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 170)
+mainFrame.Position = UDim2.new(1, 10, 0.5, -85)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 20, 0) -- ดำอมเขียว
+mainFrame.Parent = screenGui
+
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Thickness = 2
+mainStroke.Color = Color3.fromRGB(0, 255, 0)
+
+-- Gradient พื้นหลัง
+local gradient = Instance.new("UIGradient", mainFrame)
+gradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 90, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 20, 0))
+}
+gradient.Rotation = 90
+
+mainFrame.Visible = false
+
+-- ฟังก์ชันสร้างปุ่ม
+local function createButton(name, posY, callback)
+	local button = Instance.new("TextButton")
+	button.Name = name .. "Button"
+	button.Text = name .. " (ปิด)"
+	button.Size = UDim2.new(1, -20, 0, 40)
+	button.Position = UDim2.new(0, 10, 0, posY)
+	button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- สีปิด
+	button.TextColor3 = Color3.fromRGB(0, 255, 0)
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 16
+	button.Parent = mainFrame
+
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
+
+	local isOn = false
+	button.MouseButton1Click:Connect(function()
+		isOn = not isOn
+		callback(isOn)
+
+		if isOn then
+			button.Text = name .. " (เปิด)"
+			button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+		else
+			button.Text = name .. " (ปิด)"
+			button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		end
+	end)
+end
+
+-- ปุ่มวิ่ง
+createButton("วิ่ง", 10, function(isOn)
+	if isOn then
+		player.Character.Humanoid.WalkSpeed = 50
+	else
+		player.Character.Humanoid.WalkSpeed = 16
+	end
+end)
+
+-- ปุ่มกระโดดสูง
+createButton("กระโดดสูง", 60, function(isOn)
+	if isOn then
+		player.Character.Humanoid.JumpPower = 120
+	else
+		player.Character.Humanoid.JumpPower = 50
+	end
+end)
+
+-- ปุ่ม NoClip
+local noclipConnection
+createButton("NoClip", 110, function(isOn)
+	if isOn then
+		noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+				for _, part in pairs(player.Character:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+			end
+		end)
+	else
+		if noclipConnection then
+			noclipConnection:Disconnect()
+			noclipConnection = nil
+		end
+		for _, part in pairs(player.Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
+		end
+	end
+end)
+
+-- เปิด/ปิด GUI พร้อมอนิเมชัน
+local isOpen = false
+openButton.MouseButton1Click:Connect(function()
+	isOpen = not isOpen
+	if isOpen then
+		mainFrame.Visible = true
+		TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Position = UDim2.new(1, -220, 0.5, -85)
+		}):Play()
+	else
+		TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+			Position = UDim2.new(1, 10, 0.5, -85)
+		}):Play()
+		task.wait(0.5)
+		mainFrame.Visible = false
+	end
+end)
+
+-- ฟังก์ชันลากปุ่ม OpenButton ได้
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	openButton.Position = UDim2.new(
+		startPos.X.Scale, startPos.X.Offset + delta.X,
+		startPos.Y.Scale, startPos.Y.Offset + delta.Y
+	)
+end
+
+openButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = openButton.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+openButton.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserIn
